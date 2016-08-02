@@ -55,6 +55,10 @@ class Cloner(object):
         if clone_map_file:
             self.readCloneMap(clone_map_file)
 
+        # BH: this is hardcoded and assumes a particular environment
+        # zuul-cloner is running in.  Change this if it becomes an issue
+        self.readMappings("/etc/project-config/tesora/config.yaml")
+
     def readCloneMap(self, clone_map_file):
         clone_map_file = os.path.expanduser(clone_map_file)
         if not os.path.exists(clone_map_file):
@@ -64,6 +68,10 @@ class Cloner(object):
         self.clone_map = yaml.load(clone_map_file).get('clonemap')
         self.log.info("Loaded map containing %s rules", len(self.clone_map))
         return self.clone_map
+
+    def readMappings(self, mappingfile):
+        self.mappings = yaml.load(open(mappingfile))
+        return self.mappings
 
     def execute(self):
         mapper = CloneMapper(self.clone_map, self.projects)
@@ -77,7 +85,12 @@ class Cloner(object):
     def cloneUpstream(self, project, dest):
         # Check for a cached git repo first
         git_cache = '%s/%s' % (self.cache_dir, project)
+
+        repomappings = self.mappings['repo-mappings']
         git_upstream = '%s/%s' % (self.git_url, project)
+        for mapping in repomappings:
+            if mapping['name'] == project:
+                git_upstream = '%s/%s' % (self.git_url, mapping['target'])
         repo_is_cloned = os.path.exists(os.path.join(dest, '.git'))
         if (self.cache_dir and
             os.path.exists(git_cache) and
